@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
+#include <Servo.h>
 
 // PIN declaration
 #define LEFT_MOTOR D1
@@ -14,6 +15,8 @@ bool motorsEnabled = false; // flag to avoid motor activation
 int step = 1;
 String serializedJSON;
 
+Servo ejectServo;
+
 // functions declaration
 void ascentCycle(uint8_t motor, bool debug, int minValue, int step);
 void descentCycle(uint8_t motor, bool debug, int minValue, int step);
@@ -22,6 +25,7 @@ void handleSerialDataReceived(String serialData);
 void handleDataReceived(char *dataStr);
 void serialFlush();
 String getValue(String data, char separator, int index);
+String ejectPastura();
 
 // const
 const String ssid = "Casa Crinella 2.4 GHz";
@@ -43,6 +47,10 @@ void setup()
   digitalWrite(RIGHT_MOTOR, LOW);
   digitalWrite(LEFT_MOTOR, LOW);
   digitalWrite(EJECT_SERVO, LOW);
+
+  // initialize servo
+  ejectServo.attach(EJECT_SERVO);
+  ejectServo.write(0);
 
   // Start the Serial communication to send messages to the computer
   Serial.begin(115200); 
@@ -113,35 +121,6 @@ void loop()
   // Serial.println("********************");
 }
 
-void testLoop()
-{
-  String serialMessage = "";
-  Serial.println("********************");
-  Serial.println("loop begin\r\n");
-  // put your main code here, to run repeatedly:
-
-  // try PWN on motors
-  Serial.println("Start RIGHT ascent cycle");
-  ascentCycle(RIGHT_MOTOR, true, 0, step);
-  delay(1500);
-
-  Serial.println("Start RIGHT descent cycle");
-  descentCycle(RIGHT_MOTOR, true, 0, step);
-  delay(1000);
-
-  // try PWN on motors
-  Serial.println("Start LEFT ascent cycle");
-  ascentCycle(LEFT_MOTOR, true, 0, step);
-  delay(1500);
-
-  Serial.println("Start LEFT descent cycle");
-  descentCycle(LEFT_MOTOR, true, 0, step);
-  delay(1000);
-
-  Serial.println("\r\nloop end");
-  Serial.println("********************");
-}
-
 String setMotorsSpeed(int left, int right)
 {
   if ((0 <= left && left <= MAX_ANALOG_WRITE) && (0 <= right && right <= MAX_ANALOG_WRITE)) {
@@ -150,6 +129,14 @@ String setMotorsSpeed(int left, int right)
     return "OK";
   }
   Serial.println("Not valid values");
+}
+
+String ejectPastura() {
+  ejectServo.write(90);
+  delay(500);
+  ejectServo.write(0);
+  Serial.println("Pastura ejected");
+  return "OK";
 }
 
 void handleSerialDataReceived(String serialData)
@@ -178,8 +165,7 @@ void handleSerialDataReceived(String serialData)
   }
   else if (command == "ejectPastura")
   {
-    // todo
-    Serial.println("Ejecting Pastura! Yeeeeeee!");
+    ejectPastura();
   }
   else
   {
