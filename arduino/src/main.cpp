@@ -2,6 +2,7 @@
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
 #include <Servo.h>
+// #include "motors.cpp"
 
 // PIN declaration
 #define LEFT_MOTOR D1
@@ -26,10 +27,15 @@ void handleDataReceived(char *dataStr);
 void serialFlush();
 String getValue(String data, char separator, int index);
 String ejectPastura();
+int getLeftMotorValue(double degrees);
+int getRightMotorValue(double degrees);
 
 // const
 const String ssid = "Casa Crinella 2.4 GHz";
 const String password = "unapasswordmoltocomplicata";
+
+double maxSpeed = 1023;
+double maxTurningSpeed = 511;
 WiFiServer wifiServer(80);
 
 void setup()
@@ -54,37 +60,40 @@ void setup()
 
   // Start the Serial communication to send messages to the computer
   Serial.begin(115200); 
-  delay(100);
-  Serial.println();
-  Serial.println("Starting...");
+  delay(3000);
 
   // Start WiFi Server
   // WiFi.begin(ssid, password);
   Serial.print("Setting soft-AP ... ");
   Serial.println(WiFi.softAP("BarkiFi", "ciaociao") ? "Ready" : "Failed!");
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.println("Connecting..");
-  }
+  // while (WiFi.status() != WL_CONNECTED) {
+  //   delay(1000);
+  //   Serial.println("Connecting..");
+  // }
 
-  Serial.print("Connected to WiFi. IP:");
+  IPAddress IP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(IP);
+
+  // Print ESP8266 Local IP Address
   Serial.println(WiFi.localIP());
+
+  // Serial.print("Connected to WiFi. IP:");
+  // Serial.println(WiFi.localIP());
 
   wifiServer.begin();
 }
 
-void loop()
-{
-  // Serial.println("********************");
-  // Serial.println("BEGIN");
-  // Serial.println("waiting for command...");
+void loop() {
 
   WiFiClient client = wifiServer.available();
   String command = "";
 
   if (client) {
+
     while (client.connected()) {
+
       while (client.available()>0) {
         char c = client.read();
         if (c == '\n') {
@@ -93,7 +102,7 @@ void loop()
         command += c;
         Serial.write(c);
       }
-      
+
       if (command != "") {
         handleSerialDataReceived(command);
       }
@@ -106,19 +115,106 @@ void loop()
     Serial.println("Client disconnected");
     
   }
+}
 
+// void loop()
+// {
+//   // Serial.println("********************");
+//   // Serial.println("BEGIN");
+//   // Serial.println("waiting for command...");
 
-  // // send data only when you receive data:
-  // while (!Serial.available())
-  // {
+//   WiFiClient client = wifiServer.available();
+//   String command = "";
+
+//   if (client) {
+//     while (client.connected()) {
+//       while (client.available()>0) {
+//         char c = client.read();
+//         if (c == '\n') {
+//           break;
+//         }
+//         command += c;
+//         Serial.write(c);
+//       }
+      
+//       if (command != "") {
+//         handleSerialDataReceived(command);
+//       }
+
+//       command = "";
+//       delay(10);
+//     }
+
+//     client.stop();
+//     Serial.println("Client disconnected");
     
-  // }
+//   }
 
-  // handleSerialDataReceived();
-  // serialFlush();
 
-  // Serial.println("END");
-  // Serial.println("********************");
+//   // // send data only when you receive data:
+//   // while (!Serial.available())
+//   // {
+    
+//   // }
+
+//   // handleSerialDataReceived();
+//   // serialFlush();
+
+//   // Serial.println("END");
+//   // Serial.println("********************");
+// }
+
+
+
+
+int getLeftMotorValue(double degrees)
+{
+  if (degrees >= 0 && degrees <= 90)
+  {
+    return (int) maxSpeed * (1 - (degrees / (90 * (maxSpeed / maxTurningSpeed))));
+  }
+  else if (degrees >= 270 && degrees <= 360)
+  {
+    return (int) maxSpeed * (1 - ((360 - degrees) / 90));
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+int getRightMotorValue(double degrees)
+{
+  if (degrees >= 0 && degrees <= 90)
+  {
+    return (int) maxSpeed * (1 - (degrees / 90));
+  }
+  else if (degrees >= 270 && degrees <= 360)
+  {
+    return (int) maxSpeed * (1 - ((360 - degrees) / (90 * (maxSpeed / maxTurningSpeed))));
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+
+
+String setMotorsSpeedFromPad(double degrees, double distance)
+{
+  int left = getLeftMotorValue(degrees);
+  int right = getRightMotorValue(degrees);
+  Serial.print("SX: ");
+  Serial.println(left);
+  Serial.print("DX: ");
+  Serial.println(right);
+  if ((0 <= left && left <= MAX_ANALOG_WRITE) && (0 <= right && right <= MAX_ANALOG_WRITE)) {
+    analogWrite(LEFT_MOTOR, left);
+    analogWrite(RIGHT_MOTOR, right);
+    return "OK";
+  }
+  Serial.println("Not valid values");
 }
 
 String setMotorsSpeed(int left, int right)
@@ -159,6 +255,16 @@ void handleSerialDataReceived(String serialData)
 
     setMotorsSpeed(left, right);
   }
+  else if (command == "setMotorsSpeedFromPad")
+  {
+    String leftCommand = getValue(serialData, ';', 1);
+    String rightCommand = getValue(serialData, ';', 2);
+
+    double degrees = leftCommand.toDouble();
+    double distance = rightCommand.toDouble();
+
+    setMotorsSpeedFromPad(degrees, distance);
+  }
   else if (command == "stopMotors")
   {
     setMotorsSpeed(0, 0);
@@ -169,7 +275,7 @@ void handleSerialDataReceived(String serialData)
   }
   else
   {
-    Serial.println("No valid command");
+    // Serial.println("No valid command");
   }
 }
 

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:gateway/gateway.dart';
 import 'package:wifi/wifi.dart';
+import 'package:control_pad/control_pad.dart';
 
 void main() => runApp(MyApp());
 
@@ -120,6 +121,13 @@ class _MyHomePageState extends State<MyHomePage> {
     channel.write("setMotorsSpeed;1000;1000;\n");
   }
 
+  void _onPadToggle(double degrees, double normalizedDistance) {
+    int degreesInt = degrees.floor();
+    double distanceShort = (normalizedDistance * 10).floor() / 10;
+    print("setMotorsSpeedFromPad;$degreesInt;$distanceShort;");
+    channel.write("setMotorsSpeedFromPad;$degreesInt;$distanceShort;\n");
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -187,22 +195,29 @@ class _MyHomePageState extends State<MyHomePage> {
                 color: Colors.green,
                 onPressed: !_isSocketConnected ? null : _ejectPastura,
               ),
-              RaisedButton(
-                child: Text(
-                  "A tutto biroccio",
-                  style: TextStyle(color: Colors.white, fontSize: 20.0),
+              Container(
+                color: Colors.white,
+                child: JoystickView(
+                  onDirectionChanged: _onPadToggle,
+                  interval: Duration(milliseconds: 300),
                 ),
-                color: Colors.green,
-                onPressed: !_isSocketConnected ? null : _aTuttoBiroccio,
               ),
-              RaisedButton(
-                child: Text(
-                  "Fermete!",
-                  style: TextStyle(color: Colors.white, fontSize: 20.0),
-                ),
-                color: Colors.green,
-                onPressed: !_isSocketConnected ? null : _fermete,
-              ),
+              // RaisedButton(
+              //   child: Text(
+              //     "A tutto biroccio",
+              //     style: TextStyle(color: Colors.white, fontSize: 20.0),
+              //   ),
+              //   color: Colors.green,
+              //   onPressed: !_isSocketConnected ? null : _aTuttoBiroccio,
+              // ),
+              // RaisedButton(
+              //   child: Text(
+              //     "Fermete!",
+              //     style: TextStyle(color: Colors.white, fontSize: 20.0),
+              //   ),
+              //   color: Colors.green,
+              //   onPressed: !_isSocketConnected ? null : _fermete,
+              // ),
               RaisedButton(
                 child: Text(
                   "Disconnect Socket",
