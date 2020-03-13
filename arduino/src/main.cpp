@@ -167,42 +167,42 @@ void loop() {
 
 
 
-int getLeftMotorValue(double degrees)
+int getLeftMotorValue(double degrees, double distance)
 {
+  // degrees: from 0 to 360
+  // distance: from 0 to 1
+  double result = 0;
   if (degrees >= 0 && degrees <= 90)
   {
-    return (int) maxSpeed * (1 - (degrees / (90 * (maxSpeed / maxTurningSpeed))));
+    result = maxSpeed * (1 - (degrees / (90 * (maxSpeed / maxTurningSpeed))));
   }
   else if (degrees >= 270 && degrees <= 360)
   {
-    return (int) maxSpeed * (1 - ((360 - degrees) / 90));
+    result = maxSpeed * (1 - ((360 - degrees) / 90));
   }
-  else
-  {
-    return 0;
-  }
+  return (int) result * distance;
 }
 
-int getRightMotorValue(double degrees)
+int getRightMotorValue(double degrees, double distance)
 {
+  // degrees: from 0 to 360
+  // distance: from 0 to 1
+  double result = 0;
   if (degrees >= 0 && degrees <= 90)
   {
-    return (int) maxSpeed * (1 - (degrees / 90));
+    result = maxSpeed * (1 - (degrees / 90));
   }
   else if (degrees >= 270 && degrees <= 360)
   {
-    return (int) maxSpeed * (1 - ((360 - degrees) / (90 * (maxSpeed / maxTurningSpeed))));
+    result = maxSpeed * (1 - ((360 - degrees) / (90 * (maxSpeed / maxTurningSpeed))));
   }
-  else
-  {
-    return 0;
-  }
+  return (int) result * distance;
 }
 
 String setMotorsSpeedFromPad(int degrees, double distance)
 {
-  int left = getLeftMotorValue(degrees);
-  int right = getRightMotorValue(degrees);
+  int left = getLeftMotorValue(degrees, distance);
+  int right = getRightMotorValue(degrees, distance);
   Serial.print("SX: ");
   Serial.println(left);
   Serial.print("DX: ");
