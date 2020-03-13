@@ -199,7 +199,7 @@ int getRightMotorValue(double degrees, double distance)
   return (int) result * distance;
 }
 
-String setMotorsSpeedFromPad(int degrees, double distance)
+String setMotorsSpeedFromPad(double degrees, double distance)
 {
   int left = getLeftMotorValue(degrees, distance);
   int right = getRightMotorValue(degrees, distance);
