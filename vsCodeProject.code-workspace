@@ -14,5 +14,10 @@
 			"path": "python"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"files.associations": {
+			"ios": "cpp",
+			"xiosbase": "cpp"
+		}
+	}
 }

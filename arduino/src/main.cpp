@@ -21,6 +21,7 @@ Servo ejectServo;
 // functions declaration
 void ascentCycle(uint8_t motor, bool debug, int minValue, int step);
 void descentCycle(uint8_t motor, bool debug, int minValue, int step);
+void stopMotors();
 String setMotorsSpeed(int left, int right);
 void handleSerialDataReceived(String serialData);
 void handleDataReceived(char *dataStr);
@@ -46,16 +47,14 @@ void setup()
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(RIGHT_MOTOR, OUTPUT);
   pinMode(LEFT_MOTOR, OUTPUT);
-  pinMode(EJECT_SERVO, OUTPUT);
 
   // initialize pins values
   digitalWrite(LED_BUILTIN, LOW);
   digitalWrite(RIGHT_MOTOR, LOW);
   digitalWrite(LEFT_MOTOR, LOW);
-  digitalWrite(EJECT_SERVO, LOW);
-
   // initialize servo
   ejectServo.attach(EJECT_SERVO);
+  delay(15);
   ejectServo.write(0);
 
   // Start the Serial communication to send messages to the computer
@@ -112,6 +111,7 @@ void loop() {
     }
 
     client.stop();
+    stopMotors();
     Serial.println("Client disconnected");
     
   }
@@ -199,9 +199,7 @@ int getRightMotorValue(double degrees)
   }
 }
 
-
-
-String setMotorsSpeedFromPad(double degrees, double distance)
+String setMotorsSpeedFromPad(int degrees, double distance)
 {
   int left = getLeftMotorValue(degrees);
   int right = getRightMotorValue(degrees);
@@ -209,12 +207,18 @@ String setMotorsSpeedFromPad(double degrees, double distance)
   Serial.println(left);
   Serial.print("DX: ");
   Serial.println(right);
-  if ((0 <= left && left <= MAX_ANALOG_WRITE) && (0 <= right && right <= MAX_ANALOG_WRITE)) {
-    analogWrite(LEFT_MOTOR, left);
-    analogWrite(RIGHT_MOTOR, right);
+  Serial.print("Distance: ");
+  Serial.println(distance);
+
+  if (distance > 0) {
+    setMotorsSpeed(left, right);
     return "OK";
   }
-  Serial.println("Not valid values");
+  else {
+    stopMotors();
+    Serial.println("Distance 0. Motors stopped");
+    return "Distance 0. Motors stopped";
+  }
 }
 
 String setMotorsSpeed(int left, int right)
@@ -224,15 +228,28 @@ String setMotorsSpeed(int left, int right)
     analogWrite(RIGHT_MOTOR, right);
     return "OK";
   }
-  Serial.println("Not valid values");
+  else {
+    Serial.println("Not valid values");
+    return "Error";
+  }
+}
+
+void stopMotors() {
+  setMotorsSpeed(0,0);
 }
 
 String ejectPastura() {
-  ejectServo.write(90);
-  delay(500);
-  ejectServo.write(0);
-  Serial.println("Pastura ejected");
-  return "OK";
+  if(ejectServo.attached()) {
+    ejectServo.write(90);
+    delay(500);
+    ejectServo.write(0);
+    Serial.println("Pastura ejected");
+    return "OK";
+  }
+  else {
+    Serial.println("Servo not attached!");
+    return "Error!";
+  }
 }
 
 void handleSerialDataReceived(String serialData)
