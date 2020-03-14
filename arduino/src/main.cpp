@@ -1,6 +1,9 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
+// #include <ESP8266WiFi.h>
 #include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+#include <WebSocketsServer.h>
 #include <Servo.h>
 // #include "motors.cpp"
 
@@ -11,11 +14,13 @@
 
 #define MAX_ANALOG_WRITE 1023
 
+ESP8266WebServer server;
+WebSocketsServer webSocket = WebSocketsServer(81);
+
 // Global variables
 bool motorsEnabled = false; // flag to avoid motor activation
 int step = 1;
 String serializedJSON;
-
 Servo ejectServo;
 
 // functions declaration
@@ -23,21 +28,61 @@ void ascentCycle(uint8_t motor, bool debug, int minValue, int step);
 void descentCycle(uint8_t motor, bool debug, int minValue, int step);
 void stopMotors();
 String setMotorsSpeed(int left, int right);
-void handleSerialDataReceived(String serialData);
 void handleDataReceived(char *dataStr);
 void serialFlush();
 String getValue(String data, char separator, int index);
 String ejectPastura();
 int getLeftMotorValue(double degrees);
 int getRightMotorValue(double degrees);
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length);
 
 // const
-const String ssid = "Casa Crinella 2.4 GHz";
-const String password = "unapasswordmoltocomplicata";
-
 double maxSpeed = 1023;
 double maxTurningSpeed = 511;
-WiFiServer wifiServer(80);
+// WiFiServer wifiServer(80);
+
+String myPassword = "ciaociao";
+String mySsid = "BarkiFi";
+
+IPAddress local_ip(192,168,1,4);
+IPAddress gateway(192,168,1,1);
+IPAddress netmask(255,255,255,0);
+
+char webpage[] PROGMEM = R"=====(
+<html>
+<head>
+  <script>
+    var Socket;
+    function init() {
+      Socket = new WebSocket('ws://' + window.location.hostname + ':81/');
+      Socket.onmessage = function(event){
+        document.getElementById("rxConsole").value += event.data;
+      }
+    }
+    function sendText(){
+      Socket.send(document.getElementById("txBar").value);
+      document.getElementById("txBar").value = "";
+    }
+    function sendBrightness(){
+      Socket.send("#"+document.getElementById("brightness").value);
+    }    
+  </script>
+</head>
+<body onload="javascript:init()">
+  <div>
+    <textarea id="rxConsole"></textarea>
+  </div>
+  <hr/>
+  <div>
+    <input type="text" id="txBar" onkeydown="if(event.keyCode == 13) sendText();" />
+  </div>
+  <hr/>
+  <div>
+    <input type="range" min="0" max="1023" value="512" id="brightness" oninput="sendBrightness()" />
+  </div>  
+</body>
+</html>
+)=====";
 
 void setup()
 {
@@ -59,112 +104,31 @@ void setup()
 
   // Start the Serial communication to send messages to the computer
   Serial.begin(115200); 
-  delay(3000);
+  delay(5000);
 
-  // Start WiFi Server
-  // WiFi.begin(ssid, password);
-  Serial.print("Setting soft-AP ... ");
-  Serial.println(WiFi.softAP("BarkiFi", "ciaociao") ? "Ready" : "Failed!");
+  server.on("/", [] () {
+    server.send_P(200, "text/html", webpage);  
+  });
+  server.begin();
+  webSocket.begin();
+  webSocket.onEvent(webSocketEvent);
 
-  // while (WiFi.status() != WL_CONNECTED) {
-  //   delay(1000);
-  //   Serial.println("Connecting..");
-  // }
-
-  IPAddress IP = WiFi.softAPIP();
-  Serial.print("AP IP address: ");
-  Serial.println(IP);
-
-  // Print ESP8266 Local IP Address
-  Serial.println(WiFi.localIP());
-
-  // Serial.print("Connected to WiFi. IP:");
-  // Serial.println(WiFi.localIP());
-
-  wifiServer.begin();
+  WiFi.setSleepMode(WIFI_NONE_SLEEP);
+  WiFi.mode(WIFI_AP);
+  // WiFi.softAPConfig(local_ip, gateway, netmask);
+  WiFi.softAP(mySsid, myPassword);
 }
 
-void loop() {
 
-  WiFiClient client = wifiServer.available();
-  String command = "";
-
-  if (client) {
-
-    while (client.connected()) {
-
-      while (client.available()>0) {
-        char c = client.read();
-        if (c == '\n') {
-          break;
-        }
-        command += c;
-        Serial.write(c);
-      }
-
-      if (command != "") {
-        handleSerialDataReceived(command);
-      }
-
-      command = "";
-      delay(10);
-    }
-
-    client.stop();
-    stopMotors();
-    Serial.println("Client disconnected");
-    
+void loop()
+{
+  webSocket.loop();
+  server.handleClient();
+  if(Serial.available() > 0){
+    char c[] = {(char)Serial.read()};
+    webSocket.broadcastTXT(c, sizeof(c));
   }
 }
-
-// void loop()
-// {
-//   // Serial.println("********************");
-//   // Serial.println("BEGIN");
-//   // Serial.println("waiting for command...");
-
-//   WiFiClient client = wifiServer.available();
-//   String command = "";
-
-//   if (client) {
-//     while (client.connected()) {
-//       while (client.available()>0) {
-//         char c = client.read();
-//         if (c == '\n') {
-//           break;
-//         }
-//         command += c;
-//         Serial.write(c);
-//       }
-      
-//       if (command != "") {
-//         handleSerialDataReceived(command);
-//       }
-
-//       command = "";
-//       delay(10);
-//     }
-
-//     client.stop();
-//     Serial.println("Client disconnected");
-    
-//   }
-
-
-//   // // send data only when you receive data:
-//   // while (!Serial.available())
-//   // {
-    
-//   // }
-
-//   // handleSerialDataReceived();
-//   // serialFlush();
-
-//   // Serial.println("END");
-//   // Serial.println("********************");
-// }
-
-
 
 
 int getLeftMotorValue(double degrees, double distance)
@@ -252,49 +216,6 @@ String ejectPastura() {
   }
 }
 
-void handleSerialDataReceived(String serialData)
-{
-  // String serialData = Serial.readStringUntil('!');
-  serialData.trim();
-  Serial.println(serialData);
-
-  // command is at pos 0
-  String command = getValue(serialData, ';', 0);
-  Serial.println(command);
-
-  if (command == "setMotorsSpeed")
-  {
-    String leftCommand = getValue(serialData, ';', 1);
-    String rightCommand = getValue(serialData, ';', 2);
-
-    int left = leftCommand.toInt();
-    int right = rightCommand.toInt();
-
-    setMotorsSpeed(left, right);
-  }
-  else if (command == "setMotorsSpeedFromPad")
-  {
-    String leftCommand = getValue(serialData, ';', 1);
-    String rightCommand = getValue(serialData, ';', 2);
-
-    double degrees = leftCommand.toDouble();
-    double distance = rightCommand.toDouble();
-
-    setMotorsSpeedFromPad(degrees, distance);
-  }
-  else if (command == "stopMotors")
-  {
-    setMotorsSpeed(0, 0);
-  }
-  else if (command == "ejectPastura")
-  {
-    ejectPastura();
-  }
-  else
-  {
-    // Serial.println("No valid command");
-  }
-}
 
 String getValue(String data, char separator, int index)
 {
@@ -389,3 +310,65 @@ void descentCycle(uint8_t motor, bool debug, int minValue = 0, int step = 1)
     delay(10);
   }
 }
+
+
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
+  if (type == WStype_CONNECTED) {
+    // char c[] = {(char)Serial.read()};
+    char payload[] = {"Hi! My name is Barkino."};
+    webSocket.broadcastTXT(payload, sizeof(payload));
+  }
+
+  if (type == WStype_TEXT) {
+    String serialData = String((char *)payload);
+    if (serialData.charAt(0) == '#') {
+      serialData = serialData.substring(1);
+      // uint16_t command = (uint16_t) strtol((const char *) &payload[1], NULL, 10);
+      // String command = (String) strtol((const char *) &payload[0], NULL, 10);
+      
+      // String serialData = Serial.readStringUntil('!');
+      serialData.trim();
+      Serial.println(serialData);
+
+      // command is at pos 0
+      String command = getValue(serialData, ';', 0);
+      Serial.println(command);
+
+      if (command == "setMotorsSpeed")
+      {
+        String leftCommand = getValue(serialData, ';', 1);
+        String rightCommand = getValue(serialData, ';', 2);
+
+        int left = leftCommand.toInt();
+        int right = rightCommand.toInt();
+
+        setMotorsSpeed(left, right);
+      }
+      else if (command == "setMotorsSpeedFromPad")
+      {
+        String leftCommand = getValue(serialData, ';', 1);
+        String rightCommand = getValue(serialData, ';', 2);
+
+        double degrees = leftCommand.toDouble();
+        double distance = rightCommand.toDouble();
+
+        setMotorsSpeedFromPad(degrees, distance);
+      }
+      else if (command == "stopMotors")
+      {
+        setMotorsSpeed(0, 0);
+      }
+      else if (command == "ejectPastura")
+      {
+        ejectPastura();
+      }
+      else
+      {
+        Serial.println("No valid command");
+      }
+    }
+  }
+  
+}
+
+
