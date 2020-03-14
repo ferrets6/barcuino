@@ -73,7 +73,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _onMessageReceived(String serverMessage) {
-    setState(() => showMessage += serverMessage);
+    setState(() => showMessage += serverMessage + '\r\n');
   }
 
   void _socketDisconnect() {
