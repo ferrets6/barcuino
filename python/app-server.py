@@ -18,8 +18,8 @@ def accept_wrapper(sock):
     sel.register(conn, selectors.EVENT_READ, data=message)
 
 
-host = '192.168.1.9'  # Standard loopback interface address (localhost)
-port = 80        # Port to listen on (non-privileged ports are > 1023)
+host = '192.168.1.6'  # Standard loopback interface address (localhost)
+port = 81        # Port to listen on (non-privileged ports are > 1023)
 
 lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # Avoid bind() exception: OSError: [Errno 48] Address already in use
