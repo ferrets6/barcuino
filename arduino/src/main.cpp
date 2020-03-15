@@ -8,9 +8,9 @@
 // #include "motors.cpp"
 
 // PIN declaration
-#define LEFT_MOTOR D1
-#define RIGHT_MOTOR D5
-#define EJECT_SERVO D8
+#define LEFT_MOTOR D4
+#define RIGHT_MOTOR D3
+#define EJECT_SERVO D7
 
 #define MAX_ANALOG_WRITE 1023
 
@@ -24,8 +24,6 @@ String serializedJSON;
 Servo ejectServo;
 
 // functions declaration
-void ascentCycle(uint8_t motor, bool debug, int minValue, int step);
-void descentCycle(uint8_t motor, bool debug, int minValue, int step);
 void stopMotors();
 String setMotorsSpeed(int left, int right);
 void handleDataReceived(char *dataStr);
@@ -118,7 +116,6 @@ void setup()
   // WiFi.softAPConfig(local_ip, gateway, netmask);
   WiFi.softAP(mySsid, myPassword);
 }
-
 
 void loop()
 {
@@ -216,7 +213,6 @@ String ejectPastura() {
   }
 }
 
-
 String getValue(String data, char separator, int index)
 {
   int found = 0;
@@ -242,75 +238,6 @@ void serialFlush()
     Serial.read();
   }
 }
-
-void handleJsonDataReceived(char *dataStr)
-{
-  serializedJSON = "";
-  DynamicJsonDocument reqDoc(1024);
-  deserializeJson(reqDoc, dataStr);
-
-  String command = reqDoc["command"];
-  Serial.print("json ");
-  Serial.println(command);
-
-  if (command == "setMotorsSpeed")
-  {
-    String leftCommand = reqDoc["left"];
-    String rightCommand = reqDoc["right"];
-
-    int left = leftCommand.toInt();
-    int right = rightCommand.toInt();
-
-    setMotorsSpeed(left, right);
-  }
-
-  if (command == "ejectPastura")
-  {
-  }
-}
-
-void ascentCycle(uint8_t motor, bool debug, int minValue = 0, int step = 1)
-{
-  for (int i = minValue; i <= MAX_ANALOG_WRITE; i++)
-  {
-    if (i == MAX_ANALOG_WRITE || i == minValue || (i % step) == 0)
-    {
-      if (debug)
-      {
-        Serial.print("i: ");
-        Serial.print(i);
-        Serial.println();
-      }
-      if (motorsEnabled == true)
-      {
-        analogWrite(motor, i);
-      }
-    }
-    delay(10);
-  }
-}
-
-void descentCycle(uint8_t motor, bool debug, int minValue = 0, int step = 1)
-{
-  for (int i = MAX_ANALOG_WRITE; i > minValue; i--)
-  {
-    if (i == MAX_ANALOG_WRITE || i == minValue || (i % step) == 0)
-    {
-      if (debug)
-      {
-        Serial.print("i: ");
-        Serial.print(i);
-        Serial.println();
-      }
-      if (motorsEnabled == true)
-      {
-        analogWrite(motor, i);
-      }
-    }
-    delay(10);
-  }
-}
-
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
   if (type == WStype_CONNECTED) {
