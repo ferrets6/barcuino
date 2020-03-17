@@ -240,13 +240,21 @@ void serialFlush()
 }
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
-  if (type == WStype_CONNECTED) {
-    // char c[] = {(char)Serial.read()};
+  if (type == WStype_CONNECTED)
+  {
     char payload[] = {"Hi! My name is Barkino."};
     webSocket.broadcastTXT(payload, sizeof(payload));
   }
-
-  if (type == WStype_TEXT) {
+  else if (type == WStype_DISCONNECTED)
+  {
+    Serial.println("WebSocket client disconnected, stopping motors");
+    stopMotors();
+  }
+  else if (type == WStype_ERROR) {
+    Serial.println("WebSocket client error, stopping motors");
+    stopMotors();
+  }
+  else if (type == WStype_TEXT) {
     String serialData = String((char *)payload);
     if (serialData.charAt(0) == '#') {
       serialData = serialData.substring(1);
