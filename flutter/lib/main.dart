@@ -1,9 +1,9 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:gateway/gateway.dart';
 import 'package:wifi/wifi.dart';
 import 'package:control_pad/control_pad.dart';
 import 'websockets.dart';
+import 'utils.dart';
 
 void main() => runApp(MyApp());
 
@@ -33,6 +33,7 @@ class _MyHomePageState extends State<MyHomePage> {
   String wsServerAddress = '192.168.4.1';
   int wsServerPort = 81;
   bool _isSocketConnected = false;
+  bool _isPasturaEjected = false;
 
   String ipGateway = '';
 
@@ -86,7 +87,42 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _ejectPastura() {
-    webSocket.send('#ejectPastura;\n');
+    if (_isSocketConnected) {
+      if (!_isPasturaEjected) {
+        Utils.asyncConfirmEject(context).then((ConfirmAction response) {
+          switch (response) {
+            case ConfirmAction.ACCEPT:
+              webSocket.send('#ejectPastura;\n');
+              Utils.asyncAlert(
+                context,
+                'Fatto!',
+                'Pastura lanciata!\r\nIn bocca al lupo.',
+              );
+              setState(() => _isPasturaEjected = true);
+              break;
+            case ConfirmAction.CANCEL:
+              print('User aborted');
+              break;
+            default:
+          }
+        });
+      } else {
+        Utils.asyncAlert(
+          context,
+          'Errore',
+          'Pastura già lanciata!\r\nNon cen\'è più...',
+        );
+        print('No more pastura to eject');
+      }
+    } else {
+      // alert
+      Utils.asyncAlert(
+        context,
+        'Errore',
+        'Socket non connesso!',
+      );
+      print('Socket not connected');
+    }
   }
 
   void _onPadToggle(double degrees, double normalizedDistance) {
@@ -178,7 +214,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 style: TextStyle(color: Colors.white, fontSize: 20.0),
               ),
               color: Colors.green,
-              onPressed: !_isSocketConnected ? null : _ejectPastura,
+              onPressed: _ejectPastura,
             ),
             // Text(
             //   _isSocketConnected ? 'Connected!' : 'Disconnected',
