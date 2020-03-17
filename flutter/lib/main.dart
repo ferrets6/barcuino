@@ -89,14 +89,20 @@ class _MyHomePageState extends State<MyHomePage> {
   void _ejectPastura() {
     if (_isSocketConnected) {
       if (!_isPasturaEjected) {
-        Utils.asyncConfirmEject(context).then((ConfirmAction response) {
+        Utils.asyncConfirmEject(
+          context: context,
+          title: 'Lanciamo?',
+          message: 'Guarda che poi non cen\'hai n\'altra!\r\n\r\nLanciamo qua, sei sicuro?',
+          //confirmButtonText: 'BONO, MORTACCI!',
+          //cancelButtonText: 'LANCIA ZIO!',
+        ).then((ConfirmAction response) {
           switch (response) {
             case ConfirmAction.ACCEPT:
               webSocket.send('#ejectPastura;\n');
               Utils.asyncAlert(
-                context,
-                'Fatto!',
-                'Pastura lanciata!\r\nIn bocca al lupo.',
+                context: context,
+                title: 'Fatto!',
+                message: 'Pastura lanciata!\r\nIn bocca al lupo.',
               );
               setState(() => _isPasturaEjected = true);
               break;
@@ -108,18 +114,18 @@ class _MyHomePageState extends State<MyHomePage> {
         });
       } else {
         Utils.asyncAlert(
-          context,
-          'Errore',
-          'Pastura già lanciata!\r\nNon cen\'è più...',
+          context: context,
+          title: 'Errore',
+          message: 'Pastura già lanciata!\r\nNon cen\'è più...',
         );
         print('No more pastura to eject');
       }
     } else {
       // alert
       Utils.asyncAlert(
-        context,
-        'Errore',
-        'Socket non connesso!',
+        context: context,
+        title: 'Errore',
+        message: 'Socket non connesso!',
       );
       print('Socket not connected');
     }
