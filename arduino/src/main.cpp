@@ -36,6 +36,7 @@ LedController ledBack;
 
 // const
 double maxSpeed = 1023;
+double minMotorSpeed = 200;  // sotto questa velocità i motori fischiano ma non si muove
 double maxTurningSpeed = 1023;
 // WiFiServer wifiServer(80);
 
@@ -167,6 +168,9 @@ int getLeftMotorValueNew(double degrees, double distance)
   else {
     result = maxSpeed * absPro(cos(radians(degrees)));
   }
+  if (result < minMotorSpeed){
+    result = 0;
+  }
   return (int) result * distance;
 }
 
@@ -174,19 +178,17 @@ int getRightMotorValueNew(double degrees, double distance)
 {
   double result = 0;
   if (degrees >= 0 && degrees <= 180) {
-    Serial.print("radians(degrees) "); Serial.println(radians(degrees));
-    Serial.print("cos(radians(degrees)) "); Serial.println(cos(radians(degrees)));
-    result = cos(radians(degrees));
-    Serial.print("result "); Serial.println(result);
-    result = maxSpeed * absPro(result);
-    Serial.print("result "); Serial.println(result);
+    result = absPro(cos(radians(degrees)));
   }
   else {
     result = maxSpeed;
   }
-  Serial.print("(int) result * distance "); Serial.println((int) result * distance);
+  if (result < minMotorSpeed){
+    result = 0;
+  }
   return (int) result * distance;
 }
+
 
 
 int getLeftMotorValue(double degrees, double distance)
