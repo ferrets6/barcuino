@@ -34,6 +34,7 @@ class _MyHomePageState extends State<MyHomePage> {
   int wsServerPort = 81;
   bool _isSocketConnected = false;
   bool _isPasturaEjected = false;
+  bool _isLedOn = false;
 
   String ipGateway = '';
 
@@ -84,6 +85,16 @@ class _MyHomePageState extends State<MyHomePage> {
 
   _handleNewIp(String value) {
     setState(() => wsServerAddress = value);
+  }
+
+  void _switchOnLed() {
+    setState(() => _isLedOn = true);
+    webSocket.send('#led;on;\n');
+  }
+
+  void _switchOffLed() {
+    setState(() => _isLedOn = false);
+    webSocket.send('#led;off;\n');
   }
 
   void _ejectPastura() {
@@ -221,6 +232,14 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
               color: Colors.green,
               onPressed: _ejectPastura,
+            ),
+            RaisedButton(
+              child: Text(
+                "Switch ${_isLedOn ? "off" : "on"} LED!",
+                style: TextStyle(color: Colors.white, fontSize: 20.0),
+              ),
+              color: Colors.green,
+              onPressed: _isLedOn ? _switchOffLed : _switchOnLed,
             ),
             // Text(
             //   _isSocketConnected ? 'Connected!' : 'Disconnected',

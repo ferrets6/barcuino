@@ -1,16 +1,21 @@
 #include <Arduino.h>
-#include <ArduinoJson.h>
-// #include <ESP8266WiFi.h>
+//#include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <WebSocketsServer.h>
 #include <Servo.h>
 // #include "motors.cpp"
+#include <LedController.h>
 
 // PIN declaration
-#define LEFT_MOTOR D4
-#define RIGHT_MOTOR D3
-#define EJECT_SERVO D7
+#define LEFT_MOTOR D8
+#define RIGHT_MOTOR D7
+#define EJECT_SERVO D4
+
+#define LED_RGB_RED D1
+#define LED_RGB_GREEN D6
+#define LED_RGB_BLUE D5
+#define LED_BACK D0
 
 #define MAX_ANALOG_WRITE 1023
 
@@ -18,10 +23,20 @@ ESP8266WebServer server;
 WebSocketsServer webSocket = WebSocketsServer(81);
 
 // Global variables
+char commandSeparator = ';';
 bool motorsEnabled = false; // flag to avoid motor activation
 int step = 1;
 String serializedJSON;
 Servo ejectServo;
+LedController ledRgbRed;
+LedController ledRgbBlue;
+LedController ledRgbGreen;
+LedController ledBack;
+
+// const
+double maxSpeed = 1023;
+double maxTurningSpeed = 1023;
+// WiFiServer wifiServer(80);
 
 // functions declaration
 void stopMotors();
@@ -33,11 +48,6 @@ String ejectPastura();
 int getLeftMotorValue(double degrees);
 int getRightMotorValue(double degrees);
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length);
-
-// const
-double maxSpeed = 1023;
-double maxTurningSpeed = 511;
-// WiFiServer wifiServer(80);
 
 String myPassword = "ciaociao";
 String mySsid = "BarkiFi";
@@ -92,9 +102,16 @@ void setup()
   pinMode(LEFT_MOTOR, OUTPUT);
 
   // initialize pins values
-  digitalWrite(LED_BUILTIN, LOW);
+  digitalWrite(LED_BUILTIN, HIGH);
   digitalWrite(RIGHT_MOTOR, LOW);
   digitalWrite(LEFT_MOTOR, LOW);
+
+  // create leds
+  ledBack.attach(LED_BACK, UNDEFINED);
+  ledRgbBlue.attach(LED_RGB_BLUE, BLUE);
+  ledRgbRed.attach(LED_RGB_RED, RED);
+  ledRgbGreen.attach(LED_RGB_GREEN, GREEN);
+
   // initialize servo
   ejectServo.attach(EJECT_SERVO);
   delay(15);
@@ -126,7 +143,6 @@ void loop()
     webSocket.broadcastTXT(c, sizeof(c));
   }
 }
-
 
 int getLeftMotorValue(double degrees, double distance)
 {
@@ -164,12 +180,10 @@ String setMotorsSpeedFromPad(double degrees, double distance)
 {
   int left = getLeftMotorValue(degrees, distance);
   int right = getRightMotorValue(degrees, distance);
-  Serial.print("SX: ");
-  Serial.println(left);
-  Serial.print("DX: ");
-  Serial.println(right);
-  Serial.print("Distance: ");
-  Serial.println(distance);
+  Serial.print("degrees: "); Serial.println(degrees);
+  Serial.print("SX: "); Serial.println(left);
+  Serial.print("DX: "); Serial.println(right);
+  Serial.print("Distance: "); Serial.println(distance);
 
   if (distance > 0) {
     setMotorsSpeed(left, right);
@@ -258,13 +272,13 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       Serial.println(serialData);
 
       // command is at pos 0
-      String command = getValue(serialData, ';', 0);
+      String command = getValue(serialData, commandSeparator, 0);
       Serial.println(command);
 
       if (command == "setMotorsSpeed")
       {
-        String leftCommand = getValue(serialData, ';', 1);
-        String rightCommand = getValue(serialData, ';', 2);
+        String leftCommand = getValue(serialData, commandSeparator, 1);
+        String rightCommand = getValue(serialData, commandSeparator, 2);
 
         int left = leftCommand.toInt();
         int right = rightCommand.toInt();
@@ -273,8 +287,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       }
       else if (command == "setMotorsSpeedFromPad")
       {
-        String leftCommand = getValue(serialData, ';', 1);
-        String rightCommand = getValue(serialData, ';', 2);
+        String leftCommand = getValue(serialData, commandSeparator, 1);
+        String rightCommand = getValue(serialData, commandSeparator, 2);
 
         double degrees = leftCommand.toDouble();
         double distance = rightCommand.toDouble();
@@ -288,6 +302,44 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       else if (command == "ejectPastura")
       {
         ejectPastura();
+      }
+      else if (command == "led")
+      {
+        String type = getValue(serialData, commandSeparator, 1);
+        String intensity = getValue(serialData, commandSeparator, 2);
+
+        if (type == "green")
+        {
+          ledRgbGreen.toggle();
+        }
+        else if (type == "red")
+        {
+          ledRgbRed.toggle();
+        }
+        else if (type == "blue")
+        {
+          ledRgbBlue.toggle();
+        }
+        else if (type == "back")
+        {
+          ledBack.toggle();
+        }
+        else if (type == "off")
+        {
+          ledBack.off();
+          ledRgbRed.off();
+          ledRgbGreen.off();
+          ledRgbBlue.off();
+          Serial.println("Switched off!");
+        }
+        else if (type == "on")
+        {
+          ledBack.on();
+          ledRgbRed.on();
+          ledRgbGreen.on();
+          ledRgbBlue.on();
+          Serial.println("Switched on!");
+        }
       }
       else
       {
