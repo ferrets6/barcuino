@@ -146,6 +146,18 @@ void loop()
   }
 }
 
+double absPro(double x)
+{
+  if (x > 0)
+  {
+    return x;
+  }
+  else
+  {
+    return -x;
+  }
+}
+
 int getLeftMotorValueNew(double degrees, double distance)
 {
   double result = 0;
@@ -153,7 +165,7 @@ int getLeftMotorValueNew(double degrees, double distance)
     result = maxSpeed;
   }
   else {
-    result = maxSpeed * abs(cos(radians(degrees)));
+    result = maxSpeed * absPro(cos(radians(degrees)));
   }
   return (int) result * distance;
 }
@@ -166,7 +178,7 @@ int getRightMotorValueNew(double degrees, double distance)
     Serial.print("cos(radians(degrees)) "); Serial.println(cos(radians(degrees)));
     result = cos(radians(degrees));
     Serial.print("result "); Serial.println(result);
-    result = maxSpeed * abs(result);
+    result = maxSpeed * absPro(result);
     Serial.print("result "); Serial.println(result);
   }
   else {
