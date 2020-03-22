@@ -6,6 +6,7 @@
 #include <Servo.h>
 // #include "motors.cpp"
 #include <LedController.h>
+#include <math.h>
 
 // PIN declaration
 #define LEFT_MOTOR D8
@@ -45,8 +46,6 @@ void handleDataReceived(char *dataStr);
 void serialFlush();
 String getValue(String data, char separator, int index);
 String ejectPastura();
-int getLeftMotorValue(double degrees);
-int getRightMotorValue(double degrees);
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length);
 
 String myPassword = "ciaociao";
@@ -132,6 +131,9 @@ void setup()
   WiFi.mode(WIFI_AP);
   // WiFi.softAPConfig(local_ip, gateway, netmask);
   WiFi.softAP(mySsid, myPassword);
+
+  // setup finished, switch on red led
+  ledRgbRed.on();
 }
 
 void loop()
@@ -143,6 +145,37 @@ void loop()
     webSocket.broadcastTXT(c, sizeof(c));
   }
 }
+
+int getLeftMotorValueNew(double degrees, double distance)
+{
+  double result = 0;
+  if (degrees >= 0 && degrees <= 180) {
+    result = maxSpeed;
+  }
+  else {
+    result = maxSpeed * abs(cos(radians(degrees)));
+  }
+  return (int) result * distance;
+}
+
+int getRightMotorValueNew(double degrees, double distance)
+{
+  double result = 0;
+  if (degrees >= 0 && degrees <= 180) {
+    Serial.print("radians(degrees) "); Serial.println(radians(degrees));
+    Serial.print("cos(radians(degrees)) "); Serial.println(cos(radians(degrees)));
+    result = cos(radians(degrees));
+    Serial.print("result "); Serial.println(result);
+    result = maxSpeed * abs(result);
+    Serial.print("result "); Serial.println(result);
+  }
+  else {
+    result = maxSpeed;
+  }
+  Serial.print("(int) result * distance "); Serial.println((int) result * distance);
+  return (int) result * distance;
+}
+
 
 int getLeftMotorValue(double degrees, double distance)
 {
@@ -178,8 +211,8 @@ int getRightMotorValue(double degrees, double distance)
 
 String setMotorsSpeedFromPad(double degrees, double distance)
 {
-  int left = getLeftMotorValue(degrees, distance);
-  int right = getRightMotorValue(degrees, distance);
+  int left = getLeftMotorValueNew(degrees, distance);
+  int right = getRightMotorValueNew(degrees, distance);
   Serial.print("degrees: "); Serial.println(degrees);
   Serial.print("SX: "); Serial.println(left);
   Serial.print("DX: "); Serial.println(right);
@@ -277,6 +310,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       
       // String serialData = Serial.readStringUntil('!');
       serialData.trim();
+      Serial.println("****************************");
       Serial.println(serialData);
 
       // command is at pos 0
@@ -295,11 +329,11 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       }
       else if (command == "setMotorsSpeedFromPad")
       {
-        String leftCommand = getValue(serialData, commandSeparator, 1);
-        String rightCommand = getValue(serialData, commandSeparator, 2);
+        String degreesCmd = getValue(serialData, commandSeparator, 1);
+        String distanceCmd = getValue(serialData, commandSeparator, 2);
 
-        double degrees = leftCommand.toDouble();
-        double distance = rightCommand.toDouble();
+        double degrees = degreesCmd.toDouble();
+        double distance = distanceCmd.toDouble();
 
         setMotorsSpeedFromPad(degrees, distance);
       }
@@ -314,23 +348,24 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       else if (command == "led")
       {
         String type = getValue(serialData, commandSeparator, 1);
-        String intensity = getValue(serialData, commandSeparator, 2);
+        String intensityCmd = getValue(serialData, commandSeparator, 2);
+        int intensity = intensityCmd != "" ? intensityCmd.toInt() : -1;
 
         if (type == "green")
         {
-          ledRgbGreen.toggle();
+          intensity != -1 ? ledRgbGreen.setIntensity(intensity) : ledRgbGreen.toggle();
         }
         else if (type == "red")
         {
-          ledRgbRed.toggle();
+          intensity != -1 ? ledRgbRed.setIntensity(intensity) : ledRgbRed.toggle();
         }
         else if (type == "blue")
         {
-          ledRgbBlue.toggle();
+          intensity != -1 ? ledRgbBlue.setIntensity(intensity) : ledRgbBlue.toggle();
         }
         else if (type == "back")
         {
-          ledBack.toggle();
+          intensity != -1 ? ledBack.setIntensity(intensity) : ledBack.toggle();
         }
         else if (type == "off")
         {

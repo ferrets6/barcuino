@@ -6,16 +6,15 @@ class LedController
 {
 public:
     LedController();
-    uint8_t attach(int pinm, LedType type); // attach the given pin to the next free channel, sets pinMode, returns channel number or 0 if failure
+    uint8_t attach(int pinm, LedType type); // attach the given pin and initialize pin
     void detach();
-    void on();
-    void toggle();
+    void on();  // switch on LED with max value supported by led type
+    void toggle(); // switch on/off
     void off();
-    void setIntensity();
+    void setIntensity(int intensity); // set intensity to the one desired
     bool isOn;
 private:
     bool    _attached;
     uint8_t _pin;
     LedType _type;
-    void setLedIntensity(int intensity);
 };

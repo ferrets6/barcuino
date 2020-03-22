@@ -97,13 +97,18 @@ class _MyHomePageState extends State<MyHomePage> {
     webSocket.send('#led;off;\n');
   }
 
+  void _resetPastura() {
+    setState(() => _isPasturaEjected = false);
+  }
+
   void _ejectPastura() {
     if (_isSocketConnected) {
       if (!_isPasturaEjected) {
         Utils.asyncConfirmEject(
           context: context,
           title: 'Lanciamo?',
-          message: 'Guarda che poi non cen\'hai n\'altra!\r\n\r\nLanciamo qua, sei sicuro?',
+          message:
+              'Guarda che poi non cen\'hai n\'altra!\r\n\r\nLanciamo qua, sei sicuro?',
           //confirmButtonText: 'BONO, MORTACCI!',
           //cancelButtonText: 'LANCIA ZIO!',
         ).then((ConfirmAction response) {
@@ -227,11 +232,11 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             RaisedButton(
               child: Text(
-                "Eject Pastura",
+                !_isPasturaEjected ? "Eject Pastura" : "Reset pastura",
                 style: TextStyle(color: Colors.white, fontSize: 20.0),
               ),
               color: Colors.green,
-              onPressed: _ejectPastura,
+              onPressed: !_isPasturaEjected ? _ejectPastura : _resetPastura,
             ),
             RaisedButton(
               child: Text(
