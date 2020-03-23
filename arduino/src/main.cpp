@@ -183,40 +183,6 @@ int getRightMotorValueNew(double degrees, double distance)
   return (int) (result * distance)*(1 - minMotorSpeed/maxSpeed) + minMotorSpeed;
 }
 
-
-
-int getLeftMotorValue(double degrees, double distance)
-{
-  // degrees: from 0 to 360
-  // distance: from 0 to 1
-  double result = 0;
-  if (degrees >= 0 && degrees <= 90)
-  {
-    result = maxSpeed * (1 - (degrees / (90 * (maxSpeed / maxTurningSpeed))));
-  }
-  else if (degrees >= 270 && degrees <= 360)
-  {
-    result = maxSpeed * (1 - ((360 - degrees) / 90));
-  }
-  return (int) result * distance;
-}
-
-int getRightMotorValue(double degrees, double distance)
-{
-  // degrees: from 0 to 360
-  // distance: from 0 to 1
-  double result = 0;
-  if (degrees >= 0 && degrees <= 90)
-  {
-    result = maxSpeed * (1 - (degrees / 90));
-  }
-  else if (degrees >= 270 && degrees <= 360)
-  {
-    result = maxSpeed * (1 - ((360 - degrees) / (90 * (maxSpeed / maxTurningSpeed))));
-  }
-  return (int) result * distance;
-}
-
 String setMotorsSpeedFromPad(double degrees, double distance)
 {
   int left = getLeftMotorValueNew(degrees, distance);
