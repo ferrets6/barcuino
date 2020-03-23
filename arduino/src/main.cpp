@@ -168,10 +168,7 @@ int getLeftMotorValueNew(double degrees, double distance)
   else {
     result = maxSpeed * absPro(cos(radians(degrees)));
   }
-  if (result < minMotorSpeed){
-    result = 0;
-  }
-  return (int) result * distance;
+  return (int) (result * distance)*(1 - minMotorSpeed/maxSpeed) + minMotorSpeed;
 }
 
 int getRightMotorValueNew(double degrees, double distance)
@@ -183,10 +180,7 @@ int getRightMotorValueNew(double degrees, double distance)
   else {
     result = maxSpeed;
   }
-  if (result < minMotorSpeed){
-    result = 0;
-  }
-  return (int) result * distance;
+  return (int) (result * distance)*(1 - minMotorSpeed/maxSpeed) + minMotorSpeed;
 }
 
 
