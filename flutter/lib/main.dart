@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:gateway/gateway.dart';
 import 'package:wifi/wifi.dart';
@@ -36,6 +38,9 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _isPasturaEjected = false;
   bool _isLedOn = false;
 
+  Timer _timer;
+  var _temperature;
+
   String ipGateway = '';
 
   String ssid = 'BarkiFi';
@@ -49,6 +54,9 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     _controller = TextEditingController(text: wsServerAddress);
+    _timer = new Timer.periodic(Duration(seconds: 1), (timer) {
+      _getTemperature(1);
+    });
   }
 
   void _wifiConnect() {
@@ -75,7 +83,16 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _onMessageReceived(String serverMessage) {
-    setState(() => showMessage += serverMessage + '\r\n');
+    if (serverMessage[0] == '#') {
+      // è la risosta ad un comando
+      // per ora c'è solo la temperatura
+      setState(
+          () => _temperature = double.tryParse(serverMessage.substring(1)));
+    } else {
+      setState(() {
+        showMessage += serverMessage + '\r\n';
+      });
+    }
   }
 
   void _socketDisconnect() {
@@ -95,6 +112,10 @@ class _MyHomePageState extends State<MyHomePage> {
   void _switchOffLed() {
     setState(() => _isLedOn = false);
     webSocket.send('#led;off;\n');
+  }
+
+  void _getTemperature(int sensorIndex) {
+    webSocket.send('#sensors;${sensorIndex.toString()};getTemp;\n');
   }
 
   void _resetPastura() {
@@ -246,10 +267,12 @@ class _MyHomePageState extends State<MyHomePage> {
               color: Colors.green,
               onPressed: _isLedOn ? _switchOffLed : _switchOnLed,
             ),
-            // Text(
-            //   _isSocketConnected ? 'Connected!' : 'Disconnected',
-            //   style: TextStyle(color: Colors.blue, fontSize: 20.0),
-            // ),
+            Container(
+              child: Text(
+                "Temp: ${_temperature.toString()}",
+                style: TextStyle(color: Colors.black, fontSize: 20.0),
+              ),
+            ),
             Text(
               showMessage,
               style: TextStyle(color: Colors.black, fontSize: 20.0),

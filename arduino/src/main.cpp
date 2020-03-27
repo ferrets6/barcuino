@@ -1,12 +1,11 @@
 #include <Arduino.h>
-//#include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <WebSocketsServer.h>
 #include <Servo.h>
-// #include "motors.cpp"
 #include <LedController.h>
 #include <math.h>
+#include <DallasTemperature.h>
 
 // PIN declaration
 #define LEFT_MOTOR D8
@@ -18,6 +17,16 @@
 #define LED_RGB_BLUE D5
 #define LED_BACK D0
 
+#define TEMP_SENSORS_BUS D3
+
+// temp sensor
+OneWire oneWire(TEMP_SENSORS_BUS);
+DallasTemperature sensors(&oneWire);
+DeviceAddress tempSensor1 = { 0x28, 0xAA, 0x2C, 0xCA, 0x4F, 0x14, 0x01, 0x91 };
+DeviceAddress tempSensor2 = { 0x28, 0xAA, 0xD8, 0xDD, 0x4F, 0x14, 0x01, 0x96 };
+
+int tempSensorResolution = 10;
+
 #define MAX_ANALOG_WRITE 1023
 
 ESP8266WebServer server;
@@ -25,16 +34,12 @@ WebSocketsServer webSocket = WebSocketsServer(81);
 
 // Global variables
 char commandSeparator = ';';
-bool motorsEnabled = false; // flag to avoid motor activation
-int step = 1;
-String serializedJSON;
 Servo ejectServo;
 LedController ledRgbRed;
 LedController ledRgbBlue;
 LedController ledRgbGreen;
 LedController ledBack;
 
-// const
 double maxSpeed = 1023;
 double minMotorSpeed = 200;  // sotto questa velocità i motori fischiano ma non si muove
 double maxTurningSpeed = 1023;
@@ -117,6 +122,11 @@ void setup()
   delay(15);
   ejectServo.write(0);
 
+  // initialize sensors and set resolution
+  sensors.begin();
+  sensors.setResolution(tempSensor1, tempSensorResolution);
+  sensors.setResolution(tempSensor2, tempSensorResolution);
+
   // Start the Serial communication to send messages to the computer
   Serial.begin(115200); 
   delay(5000);
@@ -168,7 +178,7 @@ int getLeftMotorValueNew(double degrees, double distance)
   else {
     result = maxSpeed * absPro(cos(radians(degrees)));
   }
-  return (int) (result * distance)*(1 - minMotorSpeed/maxSpeed) + minMotorSpeed;
+  return (int) (result * distance) * (1 - minMotorSpeed / maxSpeed) + minMotorSpeed;
 }
 
 int getRightMotorValueNew(double degrees, double distance)
@@ -180,19 +190,19 @@ int getRightMotorValueNew(double degrees, double distance)
   else {
     result = maxSpeed;
   }
-  return (int) (result * distance)*(1 - minMotorSpeed/maxSpeed) + minMotorSpeed;
+  return (int) (result * distance) * (1 - minMotorSpeed / maxSpeed) + minMotorSpeed;
 }
 
 String setMotorsSpeedFromPad(double degrees, double distance)
 {
-  int left = getLeftMotorValueNew(degrees, distance);
-  int right = getRightMotorValueNew(degrees, distance);
-  Serial.print("degrees: "); Serial.println(degrees);
-  Serial.print("SX: "); Serial.println(left);
-  Serial.print("DX: "); Serial.println(right);
-  Serial.print("Distance: "); Serial.println(distance);
-
   if (distance > 0) {
+    int left = getLeftMotorValueNew(degrees, distance);
+    int right = getRightMotorValueNew(degrees, distance);
+    Serial.print("degrees: "); Serial.println(degrees);
+    Serial.print("SX: "); Serial.println(left);
+    Serial.print("DX: "); Serial.println(right);
+    Serial.print("Distance: "); Serial.println(distance);
+
     setMotorsSpeed(left, right);
     return "OK";
   }
@@ -357,6 +367,53 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
           ledRgbBlue.on();
           Serial.println("Switched on!");
         }
+      }
+      else if (command == "sensors") {
+        bool goOn = true;
+        String type = getValue(serialData, commandSeparator, 1);
+        uint8_t* sensor; // selected sensor address
+        String result;
+
+        if (type == "1")
+          sensor = tempSensor1;
+        else if (type == "2")
+          sensor = tempSensor2;
+        else {
+            // command error
+            result = "Sensor type not found!";
+            goOn = false;
+        }
+
+        if (goOn) {
+          String function = getValue(serialData, commandSeparator, 2); //getTemp or setRes
+          if (function == "getTemp") {
+            sensors.requestTemperaturesByAddress(sensor);
+            float temp = sensors.getTempC(sensor);
+            result = '#' + String(temp);
+          }
+          else if (function == "setRes") {
+            String value = getValue(serialData, commandSeparator, 3); // value for setRes
+            int newResolution = value.toInt();
+
+            if (newResolution >= 9 && newResolution <= 11) {
+              sensors.setResolution(sensor, newResolution);
+              Serial.print("Resolution set to: ");Serial.println(newResolution);
+              result = "Ok!";
+            }
+            else {
+              // resolution not supported
+              result = "Resolution not supported!";
+              goOn = false;
+            }
+          }
+          else {
+              // function error
+              result = "Function not valid!";
+              goOn = false;
+          }
+        }
+        Serial.println(result);
+        webSocket.broadcastTXT(result);
       }
       else
       {
