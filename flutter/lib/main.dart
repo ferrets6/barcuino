@@ -5,9 +5,9 @@ import 'package:wifi/wifi.dart';
 import 'package:control_pad/control_pad.dart';
 
 import './widgets/log_messages.dart';
+import './widgets/temperature.dart';
 import './websockets.dart';
 import './utils.dart';
-
 
 void main() => runApp(MyApp());
 
@@ -58,6 +58,7 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     _controller = TextEditingController(text: wsServerAddress);
     _timer = new Timer.periodic(Duration(seconds: 1), (timer) {
+      _checkSoketConnection();
       _getTemperature(1);
     });
   }
@@ -102,6 +103,13 @@ class _MyHomePageState extends State<MyHomePage> {
   void _socketDisconnect() {
     webSocket.removeListener(_onMessageReceived);
     webSocket.reset();
+  }
+
+  void _checkSoketConnection() {
+    setState(() {
+      // TODO! Update _isSocketConnected value
+      _isSocketConnected = _isSocketConnected;
+    });
   }
 
   _handleNewIp(String value) {
@@ -267,11 +275,8 @@ class _MyHomePageState extends State<MyHomePage> {
               color: Colors.green,
               onPressed: _isLedOn ? _switchOffLed : _switchOnLed,
             ),
-            Container(
-              child: Text(
-                "Temp: ${_isSocketConnected ? _temperature.toString() : "--"}",
-                style: TextStyle(color: Colors.black, fontSize: 20.0),
-              ),
+            TemperatureSensor(
+              value: _isSocketConnected ? _temperature.toString() : null,
             ),
             LogMessages(
               messagesList: logMessages,
