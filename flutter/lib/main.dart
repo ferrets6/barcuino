@@ -1,11 +1,12 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:gateway/gateway.dart';
 import 'package:wifi/wifi.dart';
 import 'package:control_pad/control_pad.dart';
-import 'websockets.dart';
-import 'utils.dart';
+
+import './widgets/log_messages.dart';
+import './websockets.dart';
+import './utils.dart';
 
 void main() => runApp(MyApp());
 
@@ -37,6 +38,8 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _isSocketConnected = false;
   bool _isPasturaEjected = false;
   bool _isLedOn = false;
+  List<String> logMessages = new List<String>();
+  var logMessageTextController = TextEditingController();
 
   Timer _timer;
   var _temperature;
@@ -90,7 +93,8 @@ class _MyHomePageState extends State<MyHomePage> {
           () => _temperature = double.tryParse(serverMessage.substring(1)));
     } else {
       setState(() {
-        showMessage += serverMessage + '\r\n';
+        logMessages.add(serverMessage);
+        //showMessage += serverMessage + '\r\n';
       });
     }
   }
@@ -115,7 +119,20 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _getTemperature(int sensorIndex) {
-    webSocket.send('#sensors;${sensorIndex.toString()};getTemp;\n');
+    if (_isSocketConnected) {
+      try {
+        webSocket.send('#sensors;${sensorIndex.toString()};getTemp;\n');
+      } catch (err) {
+        setState(() {
+          logMessages.add(err.toString());
+        });
+      }
+    } else {
+      setState(() {
+        logMessages.add('Socket not connected.');
+        _temperature = null;
+      });
+    }
   }
 
   void _resetPastura() {
@@ -227,23 +244,6 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ],
             ),
-            // Row(
-            //   mainAxisAlignment: MainAxisAlignment.center,
-            //   children: <Widget>[
-            //     RaisedButton(
-            //       child: Text(
-            //         "Get GW",
-            //         style: TextStyle(color: Colors.white, fontSize: 20.0),
-            //       ),
-            //       color: Colors.green,
-            //       onPressed: _getGw,
-            //     ),
-            //     Text(
-            //       '$ipGateway',
-            //       style: TextStyle(color: Colors.blue, fontSize: 20.0),
-            //     ),
-            //   ],
-            // ),
             Container(
               color: Colors.transparent,
               child: JoystickView(
@@ -269,13 +269,12 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             Container(
               child: Text(
-                "Temp: ${_temperature.toString()}",
+                "Temp: ${_isSocketConnected ? _temperature.toString() : "--"}",
                 style: TextStyle(color: Colors.black, fontSize: 20.0),
               ),
             ),
-            Text(
-              showMessage,
-              style: TextStyle(color: Colors.black, fontSize: 20.0),
+            LogMessages(
+              messagesList: logMessages,
             ),
           ],
         ),
