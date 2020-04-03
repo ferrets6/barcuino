@@ -8,6 +8,7 @@ import './widgets/log_messages.dart';
 import './websockets.dart';
 import './utils.dart';
 
+
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
@@ -40,7 +41,6 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _isLedOn = false;
   List<String> logMessages = new List<String>();
   var logMessageTextController = TextEditingController();
-
   Timer _timer;
   var _temperature;
 
