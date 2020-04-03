@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:gateway/gateway.dart';
 import 'package:wifi/wifi.dart';
 import 'package:control_pad/control_pad.dart';
-import 'websockets.dart';
-import 'utils.dart';
+
+import './widgets/log_messages.dart';
+import './websockets.dart';
+import './utils.dart';
+
 
 void main() => runApp(MyApp());
 
@@ -34,6 +38,11 @@ class _MyHomePageState extends State<MyHomePage> {
   int wsServerPort = 81;
   bool _isSocketConnected = false;
   bool _isPasturaEjected = false;
+  bool _isLedOn = false;
+  List<String> logMessages = new List<String>();
+  var logMessageTextController = TextEditingController();
+  Timer _timer;
+  var _temperature;
 
   String ipGateway = '';
 
@@ -48,6 +57,9 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     _controller = TextEditingController(text: wsServerAddress);
+    _timer = new Timer.periodic(Duration(seconds: 1), (timer) {
+      _getTemperature(1);
+    });
   }
 
   void _wifiConnect() {
@@ -74,7 +86,17 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _onMessageReceived(String serverMessage) {
-    setState(() => showMessage += serverMessage + '\r\n');
+    if (serverMessage[0] == '#') {
+      // è la risosta ad un comando
+      // per ora c'è solo la temperatura
+      setState(
+          () => _temperature = double.tryParse(serverMessage.substring(1)));
+    } else {
+      setState(() {
+        logMessages.add(serverMessage);
+        //showMessage += serverMessage + '\r\n';
+      });
+    }
   }
 
   void _socketDisconnect() {
@@ -86,13 +108,45 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() => wsServerAddress = value);
   }
 
+  void _switchOnLed() {
+    setState(() => _isLedOn = true);
+    webSocket.send('#led;on;\n');
+  }
+
+  void _switchOffLed() {
+    setState(() => _isLedOn = false);
+    webSocket.send('#led;off;\n');
+  }
+
+  void _getTemperature(int sensorIndex) {
+    if (_isSocketConnected) {
+      try {
+        webSocket.send('#sensors;${sensorIndex.toString()};getTemp;\n');
+      } catch (err) {
+        setState(() {
+          logMessages.add(err.toString());
+        });
+      }
+    } else {
+      setState(() {
+        logMessages.add('Socket not connected.');
+        _temperature = null;
+      });
+    }
+  }
+
+  void _resetPastura() {
+    setState(() => _isPasturaEjected = false);
+  }
+
   void _ejectPastura() {
     if (_isSocketConnected) {
       if (!_isPasturaEjected) {
         Utils.asyncConfirmEject(
           context: context,
           title: 'Lanciamo?',
-          message: 'Guarda che poi non cen\'hai n\'altra!\r\n\r\nLanciamo qua, sei sicuro?',
+          message:
+              'Guarda che poi non cen\'hai n\'altra!\r\n\r\nLanciamo qua, sei sicuro?',
           //confirmButtonText: 'BONO, MORTACCI!',
           //cancelButtonText: 'LANCIA ZIO!',
         ).then((ConfirmAction response) {
@@ -190,23 +244,6 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ],
             ),
-            // Row(
-            //   mainAxisAlignment: MainAxisAlignment.center,
-            //   children: <Widget>[
-            //     RaisedButton(
-            //       child: Text(
-            //         "Get GW",
-            //         style: TextStyle(color: Colors.white, fontSize: 20.0),
-            //       ),
-            //       color: Colors.green,
-            //       onPressed: _getGw,
-            //     ),
-            //     Text(
-            //       '$ipGateway',
-            //       style: TextStyle(color: Colors.blue, fontSize: 20.0),
-            //     ),
-            //   ],
-            // ),
             Container(
               color: Colors.transparent,
               child: JoystickView(
@@ -216,19 +253,28 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             RaisedButton(
               child: Text(
-                "Eject Pastura",
+                !_isPasturaEjected ? "Eject Pastura" : "Reset pastura",
                 style: TextStyle(color: Colors.white, fontSize: 20.0),
               ),
               color: Colors.green,
-              onPressed: _ejectPastura,
+              onPressed: !_isPasturaEjected ? _ejectPastura : _resetPastura,
             ),
-            // Text(
-            //   _isSocketConnected ? 'Connected!' : 'Disconnected',
-            //   style: TextStyle(color: Colors.blue, fontSize: 20.0),
-            // ),
-            Text(
-              showMessage,
-              style: TextStyle(color: Colors.black, fontSize: 20.0),
+            RaisedButton(
+              child: Text(
+                "Switch ${_isLedOn ? "off" : "on"} LED!",
+                style: TextStyle(color: Colors.white, fontSize: 20.0),
+              ),
+              color: Colors.green,
+              onPressed: _isLedOn ? _switchOffLed : _switchOnLed,
+            ),
+            Container(
+              child: Text(
+                "Temp: ${_isSocketConnected ? _temperature.toString() : "--"}",
+                style: TextStyle(color: Colors.black, fontSize: 20.0),
+              ),
+            ),
+            LogMessages(
+              messagesList: logMessages,
             ),
           ],
         ),

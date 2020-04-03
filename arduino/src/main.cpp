@@ -1,16 +1,31 @@
 #include <Arduino.h>
-#include <ArduinoJson.h>
-// #include <ESP8266WiFi.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <WebSocketsServer.h>
 #include <Servo.h>
-// #include "motors.cpp"
+#include <LedController.h>
+#include <math.h>
+#include <DallasTemperature.h>
 
 // PIN declaration
-#define LEFT_MOTOR D4
-#define RIGHT_MOTOR D3
-#define EJECT_SERVO D7
+#define LEFT_MOTOR D8
+#define RIGHT_MOTOR D7
+#define EJECT_SERVO D4
+
+#define LED_RGB_RED D1
+#define LED_RGB_GREEN D6
+#define LED_RGB_BLUE D5
+#define LED_BACK D0
+
+#define TEMP_SENSORS_BUS D3
+
+// temp sensor
+OneWire oneWire(TEMP_SENSORS_BUS);
+DallasTemperature sensors(&oneWire);
+DeviceAddress tempSensor1 = { 0x28, 0xAA, 0x2C, 0xCA, 0x4F, 0x14, 0x01, 0x91 };
+DeviceAddress tempSensor2 = { 0x28, 0xAA, 0xD8, 0xDD, 0x4F, 0x14, 0x01, 0x96 };
+
+int tempSensorResolution = 10;
 
 #define MAX_ANALOG_WRITE 1023
 
@@ -18,10 +33,17 @@ ESP8266WebServer server;
 WebSocketsServer webSocket = WebSocketsServer(81);
 
 // Global variables
-bool motorsEnabled = false; // flag to avoid motor activation
-int step = 1;
-String serializedJSON;
+char commandSeparator = ';';
 Servo ejectServo;
+LedController ledRgbRed;
+LedController ledRgbBlue;
+LedController ledRgbGreen;
+LedController ledBack;
+
+double maxSpeed = 1023;
+double minMotorSpeed = 200;  // sotto questa velocità i motori fischiano ma non si muove
+double maxTurningSpeed = 1023;
+// WiFiServer wifiServer(80);
 
 // functions declaration
 void stopMotors();
@@ -30,14 +52,7 @@ void handleDataReceived(char *dataStr);
 void serialFlush();
 String getValue(String data, char separator, int index);
 String ejectPastura();
-int getLeftMotorValue(double degrees);
-int getRightMotorValue(double degrees);
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length);
-
-// const
-double maxSpeed = 1023;
-double maxTurningSpeed = 511;
-// WiFiServer wifiServer(80);
 
 String myPassword = "ciaociao";
 String mySsid = "BarkiFi";
@@ -92,13 +107,25 @@ void setup()
   pinMode(LEFT_MOTOR, OUTPUT);
 
   // initialize pins values
-  digitalWrite(LED_BUILTIN, LOW);
+  digitalWrite(LED_BUILTIN, HIGH);
   digitalWrite(RIGHT_MOTOR, LOW);
   digitalWrite(LEFT_MOTOR, LOW);
+
+  // create leds
+  ledBack.attach(LED_BACK, UNDEFINED);
+  ledRgbBlue.attach(LED_RGB_BLUE, BLUE);
+  ledRgbRed.attach(LED_RGB_RED, RED);
+  ledRgbGreen.attach(LED_RGB_GREEN, GREEN);
+
   // initialize servo
   ejectServo.attach(EJECT_SERVO);
   delay(15);
   ejectServo.write(0);
+
+  // initialize sensors and set resolution
+  sensors.begin();
+  sensors.setResolution(tempSensor1, tempSensorResolution);
+  sensors.setResolution(tempSensor2, tempSensorResolution);
 
   // Start the Serial communication to send messages to the computer
   Serial.begin(115200); 
@@ -115,6 +142,9 @@ void setup()
   WiFi.mode(WIFI_AP);
   // WiFi.softAPConfig(local_ip, gateway, netmask);
   WiFi.softAP(mySsid, myPassword);
+
+  // setup finished, switch on red led
+  ledRgbRed.on();
 }
 
 void loop()
@@ -127,51 +157,52 @@ void loop()
   }
 }
 
-
-int getLeftMotorValue(double degrees, double distance)
+double absPro(double x)
 {
-  // degrees: from 0 to 360
-  // distance: from 0 to 1
-  double result = 0;
-  if (degrees >= 0 && degrees <= 90)
+  if (x > 0)
   {
-    result = maxSpeed * (1 - (degrees / (90 * (maxSpeed / maxTurningSpeed))));
+    return x;
   }
-  else if (degrees >= 270 && degrees <= 360)
+  else
   {
-    result = maxSpeed * (1 - ((360 - degrees) / 90));
+    return -x;
   }
-  return (int) result * distance;
 }
 
-int getRightMotorValue(double degrees, double distance)
+int getLeftMotorValueNew(double degrees, double distance)
 {
-  // degrees: from 0 to 360
-  // distance: from 0 to 1
   double result = 0;
-  if (degrees >= 0 && degrees <= 90)
-  {
-    result = maxSpeed * (1 - (degrees / 90));
+  if (degrees >= 0 && degrees <= 180) {
+    result = maxSpeed;
   }
-  else if (degrees >= 270 && degrees <= 360)
-  {
-    result = maxSpeed * (1 - ((360 - degrees) / (90 * (maxSpeed / maxTurningSpeed))));
+  else {
+    result = maxSpeed * absPro(cos(radians(degrees)));
   }
-  return (int) result * distance;
+  return (int) (result * distance) * (1 - minMotorSpeed / maxSpeed) + minMotorSpeed;
+}
+
+int getRightMotorValueNew(double degrees, double distance)
+{
+  double result = 0;
+  if (degrees >= 0 && degrees <= 180) {
+    result = absPro(cos(radians(degrees)));
+  }
+  else {
+    result = maxSpeed;
+  }
+  return (int) (result * distance) * (1 - minMotorSpeed / maxSpeed) + minMotorSpeed;
 }
 
 String setMotorsSpeedFromPad(double degrees, double distance)
 {
-  int left = getLeftMotorValue(degrees, distance);
-  int right = getRightMotorValue(degrees, distance);
-  Serial.print("SX: ");
-  Serial.println(left);
-  Serial.print("DX: ");
-  Serial.println(right);
-  Serial.print("Distance: ");
-  Serial.println(distance);
-
   if (distance > 0) {
+    int left = getLeftMotorValueNew(degrees, distance);
+    int right = getRightMotorValueNew(degrees, distance);
+    Serial.print("degrees: "); Serial.println(degrees);
+    Serial.print("SX: "); Serial.println(left);
+    Serial.print("DX: "); Serial.println(right);
+    Serial.print("Distance: "); Serial.println(distance);
+
     setMotorsSpeed(left, right);
     return "OK";
   }
@@ -263,16 +294,17 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       
       // String serialData = Serial.readStringUntil('!');
       serialData.trim();
+      Serial.println("****************************");
       Serial.println(serialData);
 
       // command is at pos 0
-      String command = getValue(serialData, ';', 0);
+      String command = getValue(serialData, commandSeparator, 0);
       Serial.println(command);
 
       if (command == "setMotorsSpeed")
       {
-        String leftCommand = getValue(serialData, ';', 1);
-        String rightCommand = getValue(serialData, ';', 2);
+        String leftCommand = getValue(serialData, commandSeparator, 1);
+        String rightCommand = getValue(serialData, commandSeparator, 2);
 
         int left = leftCommand.toInt();
         int right = rightCommand.toInt();
@@ -281,11 +313,11 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       }
       else if (command == "setMotorsSpeedFromPad")
       {
-        String leftCommand = getValue(serialData, ';', 1);
-        String rightCommand = getValue(serialData, ';', 2);
+        String degreesCmd = getValue(serialData, commandSeparator, 1);
+        String distanceCmd = getValue(serialData, commandSeparator, 2);
 
-        double degrees = leftCommand.toDouble();
-        double distance = rightCommand.toDouble();
+        double degrees = degreesCmd.toDouble();
+        double distance = distanceCmd.toDouble();
 
         setMotorsSpeedFromPad(degrees, distance);
       }
@@ -296,6 +328,92 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       else if (command == "ejectPastura")
       {
         ejectPastura();
+      }
+      else if (command == "led")
+      {
+        String type = getValue(serialData, commandSeparator, 1);
+        String intensityCmd = getValue(serialData, commandSeparator, 2);
+        int intensity = intensityCmd != "" ? intensityCmd.toInt() : -1;
+
+        if (type == "green")
+        {
+          intensity != -1 ? ledRgbGreen.setIntensity(intensity) : ledRgbGreen.toggle();
+        }
+        else if (type == "red")
+        {
+          intensity != -1 ? ledRgbRed.setIntensity(intensity) : ledRgbRed.toggle();
+        }
+        else if (type == "blue")
+        {
+          intensity != -1 ? ledRgbBlue.setIntensity(intensity) : ledRgbBlue.toggle();
+        }
+        else if (type == "back")
+        {
+          intensity != -1 ? ledBack.setIntensity(intensity) : ledBack.toggle();
+        }
+        else if (type == "off")
+        {
+          ledBack.off();
+          ledRgbRed.off();
+          ledRgbGreen.off();
+          ledRgbBlue.off();
+          Serial.println("Switched off!");
+        }
+        else if (type == "on")
+        {
+          ledBack.on();
+          ledRgbRed.on();
+          ledRgbGreen.on();
+          ledRgbBlue.on();
+          Serial.println("Switched on!");
+        }
+      }
+      else if (command == "sensors") {
+        bool goOn = true;
+        String type = getValue(serialData, commandSeparator, 1);
+        uint8_t* sensor; // selected sensor address
+        String result;
+
+        if (type == "1")
+          sensor = tempSensor1;
+        else if (type == "2")
+          sensor = tempSensor2;
+        else {
+            // command error
+            result = "Sensor type not found!";
+            goOn = false;
+        }
+
+        if (goOn) {
+          String function = getValue(serialData, commandSeparator, 2); //getTemp or setRes
+          if (function == "getTemp") {
+            sensors.requestTemperaturesByAddress(sensor);
+            float temp = sensors.getTempC(sensor);
+            result = '#' + String(temp);
+          }
+          else if (function == "setRes") {
+            String value = getValue(serialData, commandSeparator, 3); // value for setRes
+            int newResolution = value.toInt();
+
+            if (newResolution >= 9 && newResolution <= 11) {
+              sensors.setResolution(sensor, newResolution);
+              Serial.print("Resolution set to: ");Serial.println(newResolution);
+              result = "Ok!";
+            }
+            else {
+              // resolution not supported
+              result = "Resolution not supported!";
+              goOn = false;
+            }
+          }
+          else {
+              // function error
+              result = "Function not valid!";
+              goOn = false;
+          }
+        }
+        Serial.println(result);
+        webSocket.broadcastTXT(result);
       }
       else
       {
