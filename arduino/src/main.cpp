@@ -44,12 +44,16 @@ double maxSpeed = 1023;
 double minMotorSpeed = 200;  // sotto questa velocità i motori fischiano ma non si muove
 double maxTurningSpeed = 1023;
 // WiFiServer wifiServer(80);
+unsigned long previousHealtCheck = 0;
+unsigned long maxTimeInterval = 5000; // 5 seconds 
+
 
 // functions declaration
 void stopMotors();
 String setMotorsSpeed(int left, int right);
 void handleDataReceived(char *dataStr);
 void serialFlush();
+void checkHealthCheckTime();
 String getValue(String data, char separator, int index);
 String ejectPastura();
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length);
@@ -57,8 +61,10 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
 String myPassword = "ciaociao";
 String mySsid = "BarkiFi";
 
-IPAddress local_ip(192,168,1,4);
-IPAddress gateway(192,168,1,1);
+// IPAddress local_ip(192,168,1,4);
+// IPAddress gateway(192,168,1,1);
+IPAddress local_ip(192,168,4,1);
+IPAddress gateway(192,168,4,1);
 IPAddress netmask(255,255,255,0);
 
 char webpage[] PROGMEM = R"=====(
@@ -140,7 +146,7 @@ void setup()
 
   WiFi.setSleepMode(WIFI_NONE_SLEEP);
   WiFi.mode(WIFI_AP);
-  // WiFi.softAPConfig(local_ip, gateway, netmask);
+  WiFi.softAPConfig(local_ip, gateway, netmask);
   WiFi.softAP(mySsid, myPassword);
 
   // setup finished, switch on red led
@@ -155,6 +161,7 @@ void loop()
     char c[] = {(char)Serial.read()};
     webSocket.broadcastTXT(c, sizeof(c));
   }
+  checkHealthCheckTime();
 }
 
 double absPro(double x)
@@ -267,6 +274,16 @@ void serialFlush()
   while (Serial.available() > 0)
   {
     Serial.read();
+  }
+}
+
+// Check if Health Check time has been triggered. If so, the server is no more active
+void checkHealthCheckTime() {
+  if (previousHealtCheck > 0) { // don't check if alarm was already triggered or at the startup
+    if (millis() - previousHealtCheck > maxTimeInterval) {
+      Serial.println("Server is dead! HealtCheck timer triggered.");
+      previousHealtCheck = 0;
+    }
   }
 }
 
@@ -389,7 +406,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
           if (function == "getTemp") {
             sensors.requestTemperaturesByAddress(sensor);
             float temp = sensors.getTempC(sensor);
-            result = '#' + String(temp);
+            result = "#getTemp;" + String(temp);
           }
           else if (function == "setRes") {
             String value = getValue(serialData, commandSeparator, 3); // value for setRes
@@ -414,6 +431,19 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         }
         Serial.println(result);
         webSocket.broadcastTXT(result);
+      }
+      else if (command == "healthcheck")
+      {
+        Serial.println("HealthCheck received, server is on.");
+        // Save the last time healtcheck was received
+        previousHealtCheck = millis();
+        
+        // Do what you have to do when server gets lost
+        stopMotors();
+
+        // Send back an healthcheck
+        char payload[] = {"healthcheck"};
+        webSocket.broadcastTXT(payload, sizeof(payload));
       }
       else
       {

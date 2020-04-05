@@ -42,6 +42,7 @@ class _MyHomePageState extends State<MyHomePage> {
   List<String> logMessages = new List<String>();
   var logMessageTextController = TextEditingController();
   Timer _timer;
+  Timer _healthCheckTimer;
   var _temperature;
 
   String ipGateway = '';
@@ -58,8 +59,10 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     _controller = TextEditingController(text: wsServerAddress);
     _timer = new Timer.periodic(Duration(seconds: 1), (timer) {
-      _checkSoketConnection();
-      _getTemperature(1);
+      if (_isSocketConnected) {
+        webSocket.send('#healthcheck;\n');
+        _getTemperature(1);
+      }
     });
   }
 
@@ -68,7 +71,8 @@ class _MyHomePageState extends State<MyHomePage> {
       print('WiFi state: $state');
       _isWiFiConnected = true;
     }).catchError((error) {
-      print('Error connecting to $ssid');
+      // print('Error connecting to $ssid');
+      print('Error connecting');
       _isWiFiConnected = false;
     });
   }
@@ -87,29 +91,26 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _onMessageReceived(String serverMessage) {
-    if (serverMessage[0] == '#') {
-      // è la risosta ad un comando
-      // per ora c'è solo la temperatura
-      setState(
-          () => _temperature = double.tryParse(serverMessage.substring(1)));
+    print('Barkino is still alive');
+    if (_healthCheckTimer != null) _healthCheckTimer.cancel();
+    _healthCheckTimer = new Timer(Duration(seconds: 5), () {
+      print('Barkino is dead. Switching off websocket');
+      _socketDisconnect();
+    });
+
+    if (serverMessage.startsWith('#getTemp;')) {
+      String value = serverMessage.split(';')[1];
+      setState(() => _temperature = double.tryParse(value));
     } else {
-      setState(() {
-        logMessages.add(serverMessage);
-        //showMessage += serverMessage + '\r\n';
-      });
+      setState(() => logMessages.add(serverMessage));
     }
   }
 
   void _socketDisconnect() {
     webSocket.removeListener(_onMessageReceived);
     webSocket.reset();
-  }
-
-  void _checkSoketConnection() {
-    setState(() {
-      // TODO! Update _isSocketConnected value
-      _isSocketConnected = _isSocketConnected;
-    });
+    if (_healthCheckTimer != null) _healthCheckTimer.cancel();
+    // _timer.cancel();
   }
 
   _handleNewIp(String value) {
