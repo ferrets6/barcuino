@@ -2,7 +2,6 @@
 [![Flutter Logo](https://www.vectorlogo.zone/logos/flutterio/flutterio-icon.svg)](https://flutter.dev/)
 
 ![Maintained](https://img.shields.io/badge/mantained-yes-green)
-![Travis Build Status](https://img.shields.io/badge/build-badge)
 <!-- [![License](http://img.shields.io/badge/Licence-MIT-brightgreen.svg)](LICENSE.md) -->
 
 # Barqino
