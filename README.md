@@ -1,13 +1,9 @@
-[![Arduino Logo](https://www.vectorlogo.zone/logos/arduino/arduino-icon.svg)](https://arduino.cc/) [![Flutter Logo](https://www.vectorlogo.zone/logos/flutterio/flutterio-icon.svg)](https://flutter.dev/)
+[![Arduino Logo](https://www.vectorlogo.zone/logos/arduino/arduino-icon.svg)](https://arduino.cc/) 
+[![Flutter Logo](https://www.vectorlogo.zone/logos/flutterio/flutterio-icon.svg)](https://flutter.dev/)
 
-![Maintained][maintained-badge]
-[![Travis Build Status][build-badge]][build]
-[![Make a pull request][prs-badge]][prs]
+![Maintained](https://img.shields.io/badge/mantained-yes-green)
+![Travis Build Status](https://img.shields.io/badge/build-badge)
 <!-- [![License](http://img.shields.io/badge/Licence-MIT-brightgreen.svg)](LICENSE.md) -->
-
-[![Watch on GitHub][github-watch-badge]][github-watch]
-[![Star on GitHub][github-star-badge]][github-star]
-[![Tweet][twitter-badge]][twitter]
 
 # Barqino
 
@@ -40,3 +36,11 @@ flutter pub get
 
 If you want to generate Flutter components you **MUST** install `flutter` globally.
 Please follow [flutter documentation](https://flutter.dev/docs/get-started/install).
+
+## References
+
+* https://github.com/LilyGO/ESP32-MINI-32-V1.3
+
+## Links
+
+* https://github.com/G6EJD/LiPo_Battery_Capacity_Estimator
