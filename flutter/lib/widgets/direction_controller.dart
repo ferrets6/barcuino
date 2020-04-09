@@ -34,7 +34,7 @@ class DirectionController extends StatelessWidget {
             PadButtonItem(
               index: 1,
               buttonIcon: Icon(Icons.stop, size: 40,),
-              backgroundColor: Colors.redAccent,
+              backgroundColor: Colors.white54,
               pressedColor: Colors.red,
               //buttonImage: TODO
             ),
