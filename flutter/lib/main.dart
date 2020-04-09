@@ -1,8 +1,8 @@
+import 'package:barkino/widgets/direction_controller.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:gateway/gateway.dart';
 import 'package:wifi/wifi.dart';
-import 'package:control_pad/control_pad.dart';
 
 import './widgets/log_messages.dart';
 import './widgets/temperature.dart';
@@ -44,6 +44,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Timer _timer;
   Timer _healthCheckTimer;
   var _temperature;
+  int controllerType = 0;
 
   String ipGateway = '';
 
@@ -253,12 +254,24 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ],
             ),
-            Container(
-              color: Colors.transparent,
-              child: JoystickView(
-                onDirectionChanged: _onPadToggle,
-                interval: Duration(milliseconds: 300),
+            DirectionController(
+              onDirectionChanged: _onPadToggle,
+              controllerType: controllerType,
+            ),
+            RaisedButton(
+              child: Text(
+                controllerType == 1 ? "Show Joystick" : "Show Frecce",
+                style: TextStyle(color: Colors.white, fontSize: 20.0),
               ),
+              color: Colors.blue,
+              onPressed: () {
+                setState(() {
+                  if (controllerType == 1)
+                    controllerType = 0;
+                  else
+                    controllerType = 1;
+                });
+              },
             ),
             RaisedButton(
               child: Text(
