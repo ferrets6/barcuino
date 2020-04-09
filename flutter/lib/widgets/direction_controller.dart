@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-
-import '../flutter_control_pad/lib/control_pad.dart';
-import '../flutter_control_pad/lib/models/pad_button_item.dart';
+import 'package:control_pad/models/pad_button_item.dart';
+import 'package:control_pad/views/joystick_view.dart';
+import 'package:control_pad/views/pad_button_view.dart';
 
 class DirectionController extends StatelessWidget {
   final Function onDirectionChanged;
